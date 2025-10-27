@@ -5,11 +5,12 @@
     "model_n_layer": 1,
     "model_n_head": 32,
     "model_n_embd": 1024,
+    "model_n_ffn": 2816,
     "n_tp": 1,
     "n_pp": 1,
     "moe_enabled": true,
-    "num_experts": 62,
-    "experts_per_token": 6,
+    "num_experts": 64,
+    "experts_per_token": 2,
     "expert_capacity_factor": 1.25,
     "expert_load_imbalance": true,
     "expert_load_skew": 0.8,
@@ -19,6 +20,7 @@
     "expert_cache_size": 64,
     "moe_enable_parallelism": true,
     "moe_enable_double_buffering": true,
-    "moe_routing_trace_path": ""
+    "moe_routing_trace_path": "",
+    "ffn_execution_mode": "npu" 
 }
 

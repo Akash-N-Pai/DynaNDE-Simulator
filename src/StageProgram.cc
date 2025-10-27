@@ -69,11 +69,11 @@ void StageProgram::init_SA_program() {
     bool lets_proj_ffns = enable_proj_ffns();
     bool lets_qkvgen = enable_qkv_gen();
 
-    // OVERRIDE: For Stage E with MoE, increase batch size to 2048 tokens
-    if (_stage == Stage::E && Config::global_config.moe_enabled) {
-        N = 2048;  // Override to 2048 tokens for entire Stage E
-        spdlog::info("Stage E MoE batch override: {} → {} tokens", _breq->get_num_rows(), N);
-    }
+    // No batch size override - use actual batch size from request
+    // if (_stage == Stage::E && Config::global_config.moe_enabled) {
+    //     N = 2048;  // Override to 2048 tokens for entire Stage E
+    //     spdlog::info("Stage E MoE batch override: {} → {} tokens", _breq->get_num_rows(), N);
+    // }
 
     std::vector<uint32_t> input_dim{N, E};
     if (lets_proj_ffns) {
@@ -453,6 +453,32 @@ std::vector<Ptr<BTensor>> StageProgram::moe_ffn_block(std::vector<Ptr<BTensor>> 
     // routing_probs[0] contains [batch, num_experts] probabilities
     auto routing_outputs = routing_probs;  // Simplified: use all probs
     
+    // CRITICAL: Check ffn_execution_mode to decide execution strategy
+    std::string execution_mode = Config::global_config.ffn_execution_mode;
+    bool use_parameter_load = (execution_mode == "npu");
+    bool use_activation_movement = (execution_mode == "pim");
+    
+    spdlog::info("========== FFN Execution Mode ==========");
+    spdlog::info("Mode: {} (parameter_load={}, activation_movement={})", 
+                 execution_mode, use_parameter_load, use_activation_movement);
+    spdlog::info("=========================================");
+    
+    // ACTIVATION MOVEMENT #1 (PIM mode only): Move all tokens from HBM to PIM memory
+    // In PIM mode, activations need to be moved to PIM processing memory
+    // In NPU mode, activations stay in SRAM, no movement needed
+    std::vector<Ptr<BTensor>> input_after_movement;
+    if (use_activation_movement) {
+        spdlog::info("ACTIVATION MOVEMENT #1 (PIM mode): Moving {} tokens from HBM to PIM memory (before experts)", batch_size);
+        auto activation_movement_1 = add_op(std::make_shared<ActivationMovement>(
+            name_gen(prefix, "activation_movement_1"),
+            batch_size, E));
+        inputs = get_outputs(activation_movement_1, inputs);
+        input_after_movement = inputs;
+    } else {
+        // NPU mode: no activation movement, use inputs as-is
+        input_after_movement = inputs;
+    }
+    
     // Key optimization: Store expert outputs indexed by original token position
     // This allows us to reconstruct the batch in the correct order after gather
     std::vector<Ptr<BTensor>> expert_outputs_by_token(batch_size);
@@ -507,34 +533,42 @@ std::vector<Ptr<BTensor>> StageProgram::moe_ffn_block(std::vector<Ptr<BTensor>> 
         
         uint32_t d_ff_expert = Config::global_config.get_expert_ffn_dim();
         
-        // PARAMETER LOADING: Load both FC1 and FC2 weights together
-        // This models the double-buffering approach where we load all parameters
-        // for an expert before it starts executing
-        // Pass normalized_input as the data tensor to pass through
-        auto expert_param_load = add_op(std::make_shared<ExpertParamLoad>(
-            name_gen(expert_prefix, "param_load"),
-            expert_id,
-            std::vector<Ptr<NPUTensor>>{expert_weights[0], expert_weights[2]},  // Both FC1 and FC2 weights
-            normalized_input[0]));  // Data tensor to pass through
+        // PARAMETER LOADING (NPU mode only): Load both FC1 and FC2 weights together
+        // In NPU mode: Experts are stored in HBM, need to load into NPU SRAM
+        // In PIM mode: Experts are already in PIM memory, no load needed
+        std::vector<Ptr<BTensor>> expert_data_after_param_load;
+        Ptr<BTensor> expert_param_load_signal;
         
-        // SEQUENTIAL EXECUTION: Expert N starts AFTER Expert N-1 completes entirely
-        // Expert N param_load depends on Expert N-1's final FC2 output
-        
-        std::vector<Ptr<BTensor>> param_load_input;
-        if (expert_id == 0) {
-            // First expert depends on routing_probs (to ensure router completes first)
-            param_load_input = routing_probs;
+        if (use_parameter_load) {
+            // NPU mode: Load expert weights from HBM to NPU SRAM
+            auto expert_param_load = add_op(std::make_shared<ExpertParamLoad>(
+                name_gen(expert_prefix, "param_load"),
+                expert_id,
+                std::vector<Ptr<NPUTensor>>{expert_weights[0], expert_weights[2]},  // Both FC1 and FC2 weights
+                normalized_input[0]));  // Data tensor to pass through
+            
+            // SEQUENTIAL EXECUTION: Expert N starts AFTER Expert N-1 completes entirely
+            // Expert N param_load depends on Expert N-1's final FC2 output
+            std::vector<Ptr<BTensor>> param_load_input;
+            if (expert_id == 0) {
+                // First expert depends on input_after_movement (after activation movement #1 if PIM)
+                param_load_input = input_after_movement;
+            } else {
+                // Sequential: Expert N's param_load waits for Expert N-1's FC2 to finish
+                param_load_input = prev_expert_output;
+            }
+            
+            auto param_load_outputs = get_outputs(expert_param_load, param_load_input);
+            
+            // param_load_outputs[0]: Data for FC1 (normalized_input dimensions)
+            // param_load_outputs[1]: Completion signal (unused in sequential mode)
+            expert_data_after_param_load = {param_load_outputs[0]};
+            expert_param_load_signal = param_load_outputs[1];
         } else {
-            // Sequential: Expert N's param_load waits for Expert N-1's FC2 to finish
-            param_load_input = prev_expert_output;
+            // PIM mode: No parameter load, use input directly
+            expert_data_after_param_load = input_after_movement;
+            expert_param_load_signal = nullptr;
         }
-        
-        auto param_load_outputs = get_outputs(expert_param_load, param_load_input);
-        
-        // param_load_outputs[0]: Data for FC1 (normalized_input dimensions)
-        // param_load_outputs[1]: Completion signal (unused in sequential mode)
-        auto expert_data_after_param_load = param_load_outputs[0];
-        auto expert_param_load_signal = param_load_outputs[1];
         
         // Expert FC1: [num_tokens, E] × [E, d_ff_expert] → [num_tokens, d_ff_expert]
         // CRITICAL: Set row override to process ONLY assigned tokens, not full batch
@@ -545,8 +579,8 @@ std::vector<Ptr<BTensor>> StageProgram::moe_ffn_block(std::vector<Ptr<BTensor>> 
             std::vector<Ptr<NPUTensor>>{expert_weights[0], expert_weights[1]});
         expert_fc1_matmul->set_row_count_override(num_tokens);  // KEY: Only process assigned tokens!
         auto expert_fc1 = add_op(expert_fc1_matmul);
-        // FC1 depends on param_load's data output (which includes the timing dependency)
-        auto expert_fc1_out = get_outputs(expert_fc1, std::vector<Ptr<BTensor>>{expert_data_after_param_load});
+        // FC1 depends on param_load's data output (which includes the timing dependency) OR input directly
+        auto expert_fc1_out = get_outputs(expert_fc1, expert_data_after_param_load);
         
         // Expert GELU
         auto expert_gelu = add_op(std::make_shared<Gelu>(
@@ -578,6 +612,18 @@ std::vector<Ptr<BTensor>> StageProgram::moe_ffn_block(std::vector<Ptr<BTensor>> 
         
         // We'll handle the gather/combine separately below
         // For simulation, we track that this expert processed num_tokens
+    }
+    
+    // ACTIVATION MOVEMENT #2 (PIM mode only): Move expert outputs back to HBM
+    // In PIM mode: Need to write back processed activations from PIM memory to HBM
+    // In NPU mode: Outputs stay in SRAM, no movement needed
+    if (use_activation_movement && !prev_expert_output.empty()) {
+        spdlog::info("ACTIVATION MOVEMENT #2 (PIM mode): Moving {} tokens back to HBM (final gathered output after all experts)", 
+                     batch_size);
+        auto activation_movement_2 = add_op(std::make_shared<ActivationMovement>(
+            name_gen(prefix, "activation_movement_2"),
+            batch_size, E));  // Move entire batch back to HBM
+        auto outputs_after_movement = get_outputs(activation_movement_2, prev_expert_output);
     }
     
     // GATHER phase: Reconstruct full batch output from expert outputs

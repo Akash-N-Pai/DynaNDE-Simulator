@@ -21,16 +21,16 @@ ExpertParamLoad::ExpertParamLoad(std::string name, uint32_t expert_id,
 }
 
 void ExpertParamLoad::calculate_load_cycles() {
-    // Parameter Movement Overhead
+    // Parameter Movement Overhead with REALISTIC modeling
     // Based on actual weight size passed to this operation
-    // The weights are already provided in the constructor, so we use _param_size_bytes
-    // which was calculated from the actual expert weight tensors
     
     uint64_t param_bytes = _param_size_bytes;
     
-    // Transfer latency calculation using PCIe bandwidth
-    // Models expert weight transfer from host memory to NPU device memory via PCIe
-    uint32_t icnt_bandwidth_gbps = 32;  // PCIe Gen4 x16 (~31.5 GB/s sustained)
+    // REALISTIC PCIe Gen4 x16 parameters:
+    // - Theoretical peak: ~32 GB/s
+    // - Sustained bandwidth in practice: 18-22 GB/s due to overheads
+    // - Accounts for: protocol overhead (~15-20%), TLP inefficiency, memory controller, cache coherency
+    uint32_t icnt_bandwidth_gbps = 22;  // Realistic sustained PCIe Gen4 x16
     uint32_t core_freq_mhz = _config.core_freq;  // 1000 MHz
     
     // Bytes per cycle at core frequency
@@ -39,11 +39,42 @@ void ExpertParamLoad::calculate_load_cycles() {
     // Cycles for transfer at core frequency
     uint64_t transfer_cycles = (uint64_t)(param_bytes / bytes_per_cycle);
     
-    // Add base latency (interconnect protocol overhead)
-    _load_cycles = transfer_cycles + _config.expert_load_latency;
+    // REALISTIC OVERHEAD MODELING:
+    // 1. Base PCIe transaction overhead
+    uint64_t base_latency = _config.expert_load_latency;  // ~1000 cycles default
     
-    spdlog::info("Expert {} param load: {} bytes, {} cycles at core freq", 
-                 _expert_id, param_bytes, _load_cycles);
+    // 2. Size-dependent overhead (larger transfers need more setup)
+    uint64_t size_overhead = 0;
+    if (param_bytes < 64 * 1024) {
+        // Very small transfers: high relative overhead (cache line operations)
+        size_overhead = 500;
+    } else if (param_bytes < 1024 * 1024) {
+        // Small transfers: moderate overhead
+        size_overhead = 300;
+    } else if (param_bytes < 8 * 1024 * 1024) {
+        // Medium transfers: minimal overhead
+        size_overhead = 100;
+    }
+    // Large transfers: no additional size overhead (already accounted in base_latency)
+    
+    // 3. Memory controller overhead (HBM access latency)
+    // Larger transfers may hit multiple HBM channels, add some latency
+    uint64_t hbm_overhead = 0;
+    if (param_bytes > 4 * 1024 * 1024) {
+        // Large transfers spread across multiple HBM controllers
+        hbm_overhead = (param_bytes / (4 * 1024 * 1024)) * 200;  // ~200 cycles per controller
+    }
+    
+    // 4. Real-world jitter/variance (±5-10%)
+    // Simulate packet retransmission, cache misses, memory bank conflicts
+    uint64_t variance = transfer_cycles * 0.07;  // ±7% average variance
+    variance = variance / 2;  // Half the variance (average impact)
+    
+    _load_cycles = transfer_cycles + base_latency + size_overhead + hbm_overhead + variance;
+    
+    spdlog::info("Expert {} param load: {} bytes, {} cycles (transfer: {}, overhead: base={}, size={}, hbm={}, variance={})", 
+                 _expert_id, param_bytes, _load_cycles, transfer_cycles, 
+                 base_latency, size_overhead, hbm_overhead, variance);
 }
 
 std::vector<Ptr<BTensor>> ExpertParamLoad::get_outputs(std::vector<Ptr<BTensor>> inputs) {

@@ -17,6 +17,7 @@
 #include "operations/MoEExpert.h"
 #include "operations/MoECombine.h"
 #include "operations/ExpertParamLoad.h"
+#include "operations/ActivationMovement.h"
 #include "operations/NeuPIMSAttend.h"
 #include "operations/NeuPIMSLogitSoftmax.h"
 #include "operations/Operation.h"

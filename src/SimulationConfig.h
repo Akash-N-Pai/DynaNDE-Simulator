@@ -24,6 +24,7 @@ struct SimulationConfig {
     uint32_t model_n_layer;
     uint32_t model_n_head;
     uint32_t model_n_embd;
+    uint32_t model_n_ffn;  // FFN dimension (d_ff) - if not set, defaults to 4 * model_n_embd
     
     // MoE config
     bool moe_enabled;
@@ -39,6 +40,7 @@ struct SimulationConfig {
     bool moe_enable_parallelism; // Enable parallel expert execution
     bool moe_enable_double_buffering; // Overlap param load and compute
     std::string moe_routing_trace_path;  // Optional: path to expert routing trace file
+    std::string ffn_execution_mode;  // FFN execution mode: "npu" or "pim"
     
     // Helper function to calculate scaled expert FFN dimension
     uint32_t get_expert_ffn_dim() const;  // Implemented in Common.cc

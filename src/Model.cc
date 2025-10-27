@@ -101,9 +101,9 @@ void Model::init_params() {
             // Calculate scaled expert FFN dimension based on scaling mode
             uint32_t d_ff_expert = _config.get_expert_ffn_dim();
             
-            spdlog::info("MoE FFN Scaling: mode='{}', d_ff_expert={} (base d_ff=4*d_model={})",
+            spdlog::info("MoE FFN Scaling: mode='{}', d_ff_expert={} (base d_ff=model_n_ffn={})",
                          _config.moe_ffn_scaling, d_ff_expert, 
-                         4 * _config.model_n_embd);
+                         _config.model_n_ffn);
             
             // MoE: Create per-expert weights with scaled FFN dimension
             for (uint32_t expert_id = 0; expert_id < _config.num_experts; ++expert_id) {
@@ -121,12 +121,13 @@ void Model::init_params() {
             }
         } else {
             // Dense FFN: Create standard fc1/fc2 weights
+            uint32_t d_ff = _config.model_n_ffn / _config.n_tp;
             create_weight(name_gen(ffn, OperationType::FullyConnected1, ParameterType::Weight),
-                          {_config.model_n_embd, 4 * _config.model_n_embd / _config.n_tp});
+                          {_config.model_n_embd, d_ff});
             create_weight(name_gen(ffn, OperationType::FullyConnected1, ParameterType::Bias),
-                          {4 * _config.model_n_embd / _config.n_tp});
+                          {d_ff});
             create_weight(name_gen(ffn, OperationType::FullyConnected2, ParameterType::Weight),
-                          {4 * _config.model_n_embd / _config.n_tp, _config.model_n_embd});
+                          {d_ff, _config.model_n_embd});
             create_weight(name_gen(ffn, OperationType::FullyConnected2, ParameterType::Bias),
                           {_config.model_n_embd});
         }
@@ -150,8 +151,8 @@ void Model::init_params() {
         
         uint32_t d_model = _config.model_n_embd;
         uint32_t d_ff_expert = _config.get_expert_ffn_dim();
-        uint32_t d_ff_dense_with_tp = 4 * d_model / _config.n_tp;  // Dense with tensor parallelism
-        uint32_t d_ff_base = 4 * d_model;  // Base FFN width (no TP)
+        uint32_t d_ff_dense_with_tp = _config.model_n_ffn / _config.n_tp;  // Dense with tensor parallelism
+        uint32_t d_ff_base = _config.model_n_ffn;  // Base FFN width (no TP)
         
         // Per-layer parameter counts
         uint64_t attn_params = (d_model * 3 * d_model / _config.n_tp) + (d_model / _config.n_tp * d_model);
