@@ -1,6 +1,8 @@
 #pragma once
 #include "../tensor/NPUTensor.h"
 #include "Operation.h"
+#include <random>
+#include <functional>
 
 /**
  * ActivationMovement: Models activation transfer in MoE stage

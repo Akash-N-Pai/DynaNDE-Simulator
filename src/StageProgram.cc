@@ -440,9 +440,6 @@ std::vector<Ptr<BTensor>> StageProgram::moe_ffn_block(std::vector<Ptr<BTensor>> 
                                                 param_load_cycles_per_expert,
                                                 compute_cycles_per_token);
     
-    // Print execution plan
-    moe_exec.print_execution_plan(expert_tasks);
-    
     // FIX #1: Execute Router Softmax IMMEDIATELY after Router MatMul
     // This must happen BEFORE expert processing to avoid dependency chain delays
     auto router_softmax = add_op(std::make_shared<Softmax>(
@@ -487,7 +484,8 @@ std::vector<Ptr<BTensor>> StageProgram::moe_ffn_block(std::vector<Ptr<BTensor>> 
     
     // Variables for double-buffering simulation
     std::vector<Ptr<BTensor>> prev_expert_output;
-    Ptr<BTensor> prev_expert_param_load_signal;  // Completion signal for chaining param_loads
+    Ptr<BTensor> prev_expert_param_load_signal;  // Completion signal for chaining param_loads (NPU mode)
+    Ptr<BTensor> prev_expert_completion_signal;  // Completion signal for chaining experts (PIM mode)
     
     for (uint32_t expert_id = 0; expert_id < num_experts; ++expert_id) {
         // OPTIMIZATION 1: Skip inactive experts
@@ -550,8 +548,8 @@ std::vector<Ptr<BTensor>> StageProgram::moe_ffn_block(std::vector<Ptr<BTensor>> 
             // SEQUENTIAL EXECUTION: Expert N starts AFTER Expert N-1 completes entirely
             // Expert N param_load depends on Expert N-1's final FC2 output
             std::vector<Ptr<BTensor>> param_load_input;
-            if (expert_id == 0) {
-                // First expert depends on input_after_movement (after activation movement #1 if PIM)
+            if (prev_expert_output.empty()) {
+                // First ACTIVE expert (even if not expert 0) depends on input_after_movement
                 param_load_input = input_after_movement;
             } else {
                 // Sequential: Expert N's param_load waits for Expert N-1's FC2 to finish
@@ -565,8 +563,29 @@ std::vector<Ptr<BTensor>> StageProgram::moe_ffn_block(std::vector<Ptr<BTensor>> 
             expert_data_after_param_load = {param_load_outputs[0]};
             expert_param_load_signal = param_load_outputs[1];
         } else {
-            // PIM mode: No parameter load, use input directly
-            expert_data_after_param_load = input_after_movement;
+            // PIM mode: Use ExpertParamLoad as a wrapper to enforce sequential execution
+            // (similar to NPU mode but without actual parameter loading)
+            std::vector<Ptr<BTensor>> pim_barrier_input;
+            if (prev_expert_completion_signal == nullptr) {
+                // First expert: no dependency
+                pim_barrier_input = input_after_movement;
+            } else {
+                // Subsequent experts: depend on previous expert's completion
+                pim_barrier_input = {prev_expert_completion_signal};
+            }
+            
+            // Create a barrier operation (reusing ExpertParamLoad infrastructure)
+            // Pass empty weights so no actual parameter load happens
+            auto pim_barrier = add_op(std::make_shared<ExpertParamLoad>(
+                name_gen(expert_prefix, "pim_barrier"),
+                0,  // dummy expert_id
+                std::vector<Ptr<NPUTensor>>{},  // NO weights - just a barrier
+                input_after_movement[0]));  // Data to pass through
+            
+            auto pim_barrier_outputs = get_outputs(pim_barrier, pim_barrier_input);
+            
+            // Use the barrier output as FC1 input (creates sequential dependency)
+            expert_data_after_param_load = {pim_barrier_outputs[0]};
             expert_param_load_signal = nullptr;
         }
         
@@ -597,10 +616,17 @@ std::vector<Ptr<BTensor>> StageProgram::moe_ffn_block(std::vector<Ptr<BTensor>> 
         
         // Store outputs for next expert's dependency chain
         prev_expert_output = expert_out;
-        // Store the completion signal for next expert's param_load dependency
-        // This allows Expert N+1's param_load to start when Expert N's param_load completes
-        // WITHOUT waiting for Expert N's FC1→GELU→FC2 execution
+        // Store the completion signal for next expert's param_load dependency (NPU mode)
         prev_expert_param_load_signal = expert_param_load_signal;
+        
+        // PIM mode: Create completion signal from FC2 output to enforce sequential execution
+        if (!use_parameter_load) {
+            // Use the last output of FC2 as the completion signal
+            // This ensures Expert N+1's FC1 waits for Expert N's FC2 to finish
+            if (!expert_out.empty()) {
+                prev_expert_completion_signal = expert_out.back();
+            }
+        }
         
         // Store expert output for gather phase
         // In a real implementation, this would scatter expert_out back to the correct

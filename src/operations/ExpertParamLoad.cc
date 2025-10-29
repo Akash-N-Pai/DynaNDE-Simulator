@@ -1,4 +1,5 @@
 #include "ExpertParamLoad.h"
+#include <random>
 
 ExpertParamLoad::ExpertParamLoad(std::string name, uint32_t expert_id,
                                  std::vector<Ptr<NPUTensor>> expert_weights,
@@ -8,8 +9,14 @@ ExpertParamLoad::ExpertParamLoad(std::string name, uint32_t expert_id,
     // Calculate total parameter size for this expert
     // FC1 + FC2 weights (bias is small, ignored)
     _param_size_bytes = 0;
-    for (auto weight : expert_weights) {
-        _param_size_bytes += weight->_inners[0]->_size;
+    if (!expert_weights.empty()) {
+        // Normal case: Calculate size from weights
+        for (auto weight : expert_weights) {
+            _param_size_bytes += weight->_inners[0]->_size;
+        }
+    } else {
+        // Empty weights: Used as barrier only (PIM mode), no actual parameter load
+        _param_size_bytes = 0;
     }
     
     _inputs.resize(expert_weights.size() + 1);
@@ -26,11 +33,18 @@ void ExpertParamLoad::calculate_load_cycles() {
     
     uint64_t param_bytes = _param_size_bytes;
     
+    // Special case: If no weights (barrier only, e.g., PIM mode sequential dependency)
+    // Add minimal overhead for dependency chain, but no actual transfer
+    if (_param_size_bytes == 0) {
+        _load_cycles = 0;  // No actual parameter load happening
+        return;
+    }
+    
     // REALISTIC PCIe Gen4 x16 parameters:
     // - Theoretical peak: ~32 GB/s
     // - Sustained bandwidth in practice: 18-22 GB/s due to overheads
     // - Accounts for: protocol overhead (~15-20%), TLP inefficiency, memory controller, cache coherency
-    uint32_t icnt_bandwidth_gbps = 22;  // Realistic sustained PCIe Gen4 x16
+    uint32_t icnt_bandwidth_gbps = 30;  // Realistic sustained PCIe Gen4 x16
     uint32_t core_freq_mhz = _config.core_freq;  // 1000 MHz
     
     // Bytes per cycle at core frequency
@@ -67,8 +81,11 @@ void ExpertParamLoad::calculate_load_cycles() {
     
     // 4. Real-world jitter/variance (±5-10%)
     // Simulate packet retransmission, cache misses, memory bank conflicts
-    uint64_t variance = transfer_cycles * 0.07;  // ±7% average variance
-    variance = variance / 2;  // Half the variance (average impact)
+    // Use expert_id as seed to get deterministic but varied variance per expert
+    std::mt19937 gen(_expert_id);  // Seed with expert_id for deterministic but varied results
+    std::uniform_real_distribution<double> variance_dist(-0.05, 0.05);  // ±15% random variance
+    double variance_factor = variance_dist(gen);
+    uint64_t variance = std::abs(transfer_cycles * variance_factor);
     
     _load_cycles = transfer_cycles + base_latency + size_overhead + hbm_overhead + variance;
     

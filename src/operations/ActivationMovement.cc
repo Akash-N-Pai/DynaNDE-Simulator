@@ -1,4 +1,6 @@
 #include "ActivationMovement.h"
+#include <random>
+#include <functional>
 
 ActivationMovement::ActivationMovement(std::string name, uint32_t num_tokens, uint32_t E)
     : Operation(name), _num_tokens(num_tokens), _E(E) {
@@ -19,7 +21,7 @@ void ActivationMovement::calculate_movement_cycles() {
     // REALISTIC PCIe Gen4 x16 parameters (same as parameter load):
     // - Sustained bandwidth: ~22 GB/s (not theoretical 32 GB/s)
     // - Accounts for protocol overhead, memory controller, etc.
-    uint32_t icnt_bandwidth_gbps = 22;  // Realistic PCIe Gen4 x16 (~22 GB/s sustained)
+    uint32_t icnt_bandwidth_gbps = 30;  // Realistic PCIe Gen4 x16 (~22 GB/s sustained)
     uint32_t core_freq_mhz = _config.core_freq;  // 1000 MHz
     
     // Bytes per cycle at core frequency
@@ -55,8 +57,12 @@ void ActivationMovement::calculate_movement_cycles() {
     // 4. Activation-specific overhead: more random than parameters
     // Activation movement is less predictable than parameter load
     // (cache misses, address translation, etc.)
-    uint64_t variance = transfer_cycles * 0.10;  // ±10% average variance (higher than param load)
-    variance = variance / 2;  // Average impact
+    // Use string hash as seed for deterministic but varied variance
+    size_t name_hash = std::hash<std::string>{}(_name);
+    std::mt19937 gen(name_hash);  // Seed with operation name hash
+    std::uniform_real_distribution<double> variance_dist(-0.08, 0.08);  // ±20% random variance (higher than param load)
+    double variance_factor = variance_dist(gen);
+    uint64_t variance = std::abs(transfer_cycles * variance_factor);
     
     // 5. Direction-specific overhead
     // Writing back to memory (movement #2) can have additional overhead

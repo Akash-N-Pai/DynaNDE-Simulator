@@ -1,6 +1,7 @@
 #pragma once
 #include "../tensor/NPUTensor.h"
 #include "Operation.h"
+#include <random>
 
 /**
  * ExpertParamLoad: Models parameter transfer from HBM to NPU SRAM
