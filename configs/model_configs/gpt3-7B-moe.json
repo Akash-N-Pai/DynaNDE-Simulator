@@ -21,6 +21,6 @@
     "moe_enable_parallelism": true,
     "moe_enable_double_buffering": true,
     "moe_routing_trace_path": "flame-moe-290m_runid31066_epoch1080_layer2_shard0-0_512tokens.csv",
-    "ffn_execution_mode": "pim" 
+    "ffn_execution_mode": "npu" 
 }
 
