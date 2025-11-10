@@ -56,7 +56,6 @@ std::vector<Ptr<BTensor>> MatMul::get_outputs(std::vector<Ptr<BTensor>> inputs) 
 
     for (size_t i = 0; i < inputs.size(); ++i) {
         _inputs[i] = inputs[i];
-        spdlog::info("MatMul input idx: {} / input sz: {}", i, inputs[i]->get_dims());
     }
 
     // validate input dimension.
@@ -70,13 +69,10 @@ std::vector<Ptr<BTensor>> MatMul::get_outputs(std::vector<Ptr<BTensor>> inputs) 
     // MoE token slicing: Use override if specified
     if (_use_row_override) {
         *(output_dims.rbegin() + 1) = _row_count_override;  // Override M dimension
-        spdlog::info("MatMul using row override: processing {} rows (instead of {})", 
-                     _row_count_override, *(input0_dims.rbegin() + 1));
     } else {
         *(output_dims.rbegin() + 1) = *(input0_dims.rbegin() + 1);  // Set (M, x) in matmul (M, K) x (K, N).
     }
     *output_dims.rbegin() = *input1_dims.rbegin();  // Set (x, N) in matmul (M, K) x (K, N)
-    spdlog::info("MatMul output sz: {}", output_dims);
 
     _outputs[0] =
         std::make_shared<NPUTensor>(_name + "_output", output_dims, NPUTensorBufType::ACT, false);
@@ -85,9 +81,6 @@ std::vector<Ptr<BTensor>> MatMul::get_outputs(std::vector<Ptr<BTensor>> inputs) 
 
     calculate_loops();
     initialize_tiles();
-
-    spdlog::info("input0 : {}  / input1: {} / output0 : {}", input0_dims, input1_dims, output_dims);
-    spdlog::info("outer loop : {} / inner loop : {}", _outer_loop, _inner_loop);
 
     return _outputs;
 }

@@ -256,14 +256,7 @@ std::vector<Ptr<BTensor>> StageProgram::projection_block(std::vector<Ptr<BTensor
 
     int layer = 0;
     auto prefix = name_gen(LAYER(0), BlockType::Attention);
-    // auto res_buf = inputs[0];
-
-    auto projection = add_op(std::make_shared<MatMul>(
-        name_gen(prefix, OperationType::Projection),
-        _model->get_params(layer, BlockType::Attention, OperationType::Projection)));
-    inputs = get_outputs(projection, inputs);
-
-    // fixme: residual is not with this tensor.
+    // Skip Attention Projection in Stage E and directly add residual
     auto residual = add_op(std::make_shared<Add>(name_gen(prefix, OperationType::Residual)));
     inputs.push_back(res_buf);
     inputs = get_outputs(residual, inputs);

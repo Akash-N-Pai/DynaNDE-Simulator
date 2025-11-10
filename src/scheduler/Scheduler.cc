@@ -7,8 +7,13 @@
 
 Scheduler::Scheduler(SimulationConfig config, const cycle_type* core_cycle)
     : _config(config), _core_cycle(core_cycle), _cycles(0) {
-    _max_batch_size = 1024;   // 256;   // config.max_batch_size;
-    _max_active_reqs = 1024;  // 256;  // 70;
+    _max_batch_size = config.max_batch_size;   // Use config value instead of hardcoded
+    _max_active_reqs = config.max_active_reqs;  // Use config value instead of hardcoded
+    
+    // Debug logging to verify config values
+    spdlog::info("🔧 Scheduler initialized: max_batch_size={}, max_active_reqs={}", 
+                 _max_batch_size, _max_active_reqs);
+    
     _active_reqs = 0;
     _next_ch = 0;
     _ch_load_balancing = config.ch_load_balancing;
@@ -28,10 +33,10 @@ Scheduler::Scheduler(SimulationConfig config, const cycle_type* core_cycle)
     _model_program1 = nullptr;
     _model_program2 = nullptr;
 
-    _init_stage = Stage::A;
-    // _init_stage = Stage::C;
+    _init_stage = Stage::E;  // Skip stages A and B, start directly with Stage E
+    // _init_stage = Stage::A;
     _stage = _init_stage;
-    _just_one_stage = false;
+    _just_one_stage = true;  // Run only one stage (Stage E)
 
     _has_stage_changed = false;
 
@@ -169,6 +174,9 @@ int Scheduler::allocate_pim_tile(uint32_t seq_len) {
 
 void Scheduler::allocate_requests() {
     uint32_t batch_size = 0;
+    
+    spdlog::info("📊 allocate_requests: _max_batch_size={}, request_queue.size()={}", 
+                 _max_batch_size, _request_queue.size());
 
     // if (_ch_load_balancing) {
     //     // sort request_queue by sequence length
