@@ -56,7 +56,7 @@ do
             echo "====================================="
             
             # Update the trace path in config
-            sed -i "s|\"moe_routing_trace_path\": \".*\"|\"moe_routing_trace_path\": \"${trace_file}\"|" configs/model_configs/gpt3-7B-moe.json
+            sed -i "s|\"moe_routing_trace_path\": \".*\"|\"moe_routing_trace_path\": \"${trace_file}\"|" configs/model_configs/Flame-moe-npu.json
             
             echo "Updated config: $trace_file"
             
