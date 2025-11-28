@@ -5,9 +5,9 @@ echo "=== FAST MODE: Building optimized binary ==="
 cd build; make -j$(nproc); cd ..;
 
 # config file
-config=./configs/systolic_ws_128x128_dev.json
+config=./configs/systolic_ws_dev.json
 mem_config=./configs/memory_configs/neupims.json
-model_config=./configs/model_configs/gpt3-7B-moe.json
+model_config=.configs/model_configs/Flame-moe-npu.json
 sys_config=./configs/system_configs/sub-batch-off.json
 cli_config=./request-traces/clb/share-gpt2-bs16384-ms7B-tp4-clb-0.csv
 

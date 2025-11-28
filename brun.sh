@@ -5,7 +5,7 @@ config=./configs/systolic_ws_128x128_dev.json
 mem_config=./configs/memory_configs/neupims.json
 model_config=./configs/model_configs/gpt3-7B-moe.json
 sys_config=./configs/system_configs/sub-batch-off.json
-cli_config=./request-traces/clb/share-gpt2-bs512-ms7B-tp4-clb-0.csv
+cli_config=./request/clb/share-gpt2-bs512-ms7B-tp4-clb-0.csv
 
 # log file
 LOG_LEVEL=info

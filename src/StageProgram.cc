@@ -331,15 +331,27 @@ std::vector<Ptr<BTensor>> StageProgram::moe_ffn_block(std::vector<Ptr<BTensor>> 
     auto normalized_input = inputs;
     
     // MoE Router: compute routing weights using MatMul + Softmax
-    // Router MatMul: [batch, E] × [E, num_experts] → [batch, num_experts]
-    // Note: Router has no bias (standard in MoE implementations)
-    auto router_matmul = add_op(std::make_shared<MatMul>(
-        name_gen(prefix, OperationType::MoERouter),
-        std::vector<Ptr<NPUTensor>>{
-            _model->find_tensor(name_gen(prefix, OperationType::MoERouter, ParameterType::Weight))
-        }));
-    auto router_logits = get_outputs(router_matmul, std::vector<Ptr<BTensor>>{normalized_input[0], 
-                                                                                 _model->find_tensor(name_gen(prefix, OperationType::MoERouter, ParameterType::Weight))});
+    // OPTIMIZATION: Skip router MatMul if trace file is provided
+    std::vector<Ptr<BTensor>> router_logits;
+    std::string trace_path = Config::global_config.moe_routing_trace_path;
+    
+    if (trace_path.empty()) {
+        // No trace file - need to compute routing
+        // Router MatMul: [batch, E] × [E, num_experts] → [batch, num_experts]
+        spdlog::info("Computing router logits (no trace file)");
+        auto router_matmul = add_op(std::make_shared<MatMul>(
+            name_gen(prefix, OperationType::MoERouter),
+            std::vector<Ptr<NPUTensor>>{
+                _model->find_tensor(name_gen(prefix, OperationType::MoERouter, ParameterType::Weight))
+            }));
+        router_logits = get_outputs(router_matmul, std::vector<Ptr<BTensor>>{normalized_input[0], 
+                                                                                     _model->find_tensor(name_gen(prefix, OperationType::MoERouter, ParameterType::Weight))});
+    } else {
+        // Trace file provided - skip expensive router MatMul!
+        spdlog::info("Skipping router MatMul (using trace file: {})", trace_path);
+        // Create dummy output for compatibility (won't be used)
+        router_logits = normalized_input;
+    }
     
     // Generate token-to-expert assignments
     // Option 1: Use routing trace file (if provided)
@@ -352,8 +364,7 @@ std::vector<Ptr<BTensor>> StageProgram::moe_ffn_block(std::vector<Ptr<BTensor>> 
     std::vector<uint32_t> expert_token_counts;
     std::vector<std::vector<uint32_t>> expert_token_assignments;
     
-    // Try to load from trace file first
-    std::string trace_path = Config::global_config.moe_routing_trace_path;
+    // Try to load from trace file first (trace_path already declared above)
     if (!trace_path.empty()) {
         MoERoutingTraceReader trace_reader(trace_path, num_experts, experts_per_token, batch_size);
         if (trace_reader.has_trace()) {
@@ -434,10 +445,20 @@ std::vector<Ptr<BTensor>> StageProgram::moe_ffn_block(std::vector<Ptr<BTensor>> 
                                                 compute_cycles_per_token);
     
     // FIX #1: Execute Router Softmax IMMEDIATELY after Router MatMul
-    // This must happen BEFORE expert processing to avoid dependency chain delays
-    auto router_softmax = add_op(std::make_shared<Softmax>(
-        name_gen(prefix, OperationType::MoERouter, "softmax")));
-    auto routing_probs = get_outputs(router_softmax, router_logits);
+    // OPTIMIZATION: Skip softmax if trace file is provided
+    std::vector<Ptr<BTensor>> routing_probs;
+    
+    if (trace_path.empty()) {
+        // No trace - need to compute routing probabilities
+        spdlog::info("Computing router softmax (no trace file)");
+        auto router_softmax = add_op(std::make_shared<Softmax>(
+            name_gen(prefix, OperationType::MoERouter, "softmax")));
+        routing_probs = get_outputs(router_softmax, router_logits);
+    } else {
+        // Trace file provided - skip softmax too!
+        spdlog::info("Skipping router softmax (using trace file)");
+        routing_probs = router_logits;
+    }
     
     // For now, assume top-k selection happens implicitly
     // routing_probs[0] contains [batch, num_experts] probabilities

@@ -1,0 +1,50 @@
+========================================
+Execution Order (run_all_batches.sh)
+========================================
+
+The script runs in this order:
+
+BATCH_0-16 (Runs 1-80):
+  ├─ 1st iteration
+  │   ├─ Run 1:  Batch_0-16 / 1st / Layer 2  ← STARTS HERE!
+  │   ├─ Run 2:  Batch_0-16 / 1st / Layer 3
+  │   ├─ Run 3:  Batch_0-16 / 1st / Layer 4
+  │   ├─ Run 4:  Batch_0-16 / 1st / Layer 5
+  │   ├─ Run 5:  Batch_0-16 / 1st / Layer 6
+  │   ├─ Run 6:  Batch_0-16 / 1st / Layer 7
+  │   ├─ Run 7:  Batch_0-16 / 1st / Layer 8
+  │   └─ Run 8:  Batch_0-16 / 1st / Layer 9
+  │
+  ├─ 2nd iteration (Runs 9-16)
+  ├─ 3rd iteration (Runs 17-24)
+  ├─ 4th iteration (Runs 25-32)
+  ├─ 5th iteration (Runs 33-40)
+  ├─ 6th iteration (Runs 41-48)
+  ├─ 7th iteration (Runs 49-56)
+  ├─ 8th iteration (Runs 57-64)
+  ├─ 9th iteration (Runs 65-72)
+  └─ 10th iteration (Runs 73-80)
+
+BATCH_0-32 (Runs 81-160):
+  ├─ Run 81:  Batch_0-32 / 1st / Layer 2
+  └─ ... (same pattern, runs 81-160)
+
+BATCH_0-64 (Runs 161-240):
+  ├─ Run 161: Batch_0-64 / 1st / Layer 2
+  └─ ... (same pattern, runs 161-240)
+
+========================================
+First 10 Runs:
+========================================
+1.  Batch_0-16 / 1st / Layer 2  ← FIRST!
+2.  Batch_0-16 / 1st / Layer 3
+3.  Batch_0-16 / 1st / Layer 4
+4.  Batch_0-16 / 1st / Layer 5
+5.  Batch_0-16 / 1st / Layer 6
+6.  Batch_0-16 / 1st / Layer 7
+7.  Batch_0-16 / 1st / Layer 8
+8.  Batch_0-16 / 1st / Layer 9
+9.  Batch_0-16 / 2nd / Layer 2
+10. Batch_0-16 / 2nd / Layer 3
+
+========================================
