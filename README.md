@@ -172,8 +172,8 @@ The simulator implements the following MoE-specific components:
 ### NPU-PIM Load Balancing
 
 The simulator models heterogeneous execution where:
-- **NPU execution**: Experts run on the Neural Processing Unit (bigger systolic arrays connected through low bandwith interconnect)
-- **PIM execution**: Experts run on Processing-In-Memory (smaller systolic arrays connected through High bandwith Memory)
+- **NPU execution**: Experts run on the Neural Processing Unit (bigger systolic arrays connected through low bandwidth interconnect)
+- **PIM execution**: Experts run on Processing-In-Memory (smaller systolic arrays connected through High bandwidth Memory)
 - **Hybrid mode**: Different experts can be assigned to NPU or PIM based on configuration (MoNDE and DynaNDE)
 
 This enables research into optimal load balancing strategies between NPU and PIM for MoE workloads.
@@ -186,7 +186,7 @@ The simulator supports the following execution modes:
 
 1. **MoE-NPU**: MoE experts executed on NPU
 2. **MoE-PIM**: MoE experts executed on PIM
-3. **MoNDE**: Mixed NPU/PIM execution for MoE experts based on badwith diffrence
+3. **MoNDE**: Mixed NPU/PIM execution for MoE experts based on bandwidth difference
 4. **DynaNDE**: Mixed NPU/PIM execution for MoE experts based on optimal execution time 
 ---
 
