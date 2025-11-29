@@ -20,7 +20,7 @@
     "expert_cache_size": 64,
     "moe_enable_parallelism": true,
     "moe_enable_double_buffering": true,
-    "moe_routing_trace_path": "encoder.csv",
+    "moe_routing_trace_path": "",
     "ffn_execution_mode": "npu" 
 }
 
