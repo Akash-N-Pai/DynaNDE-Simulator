@@ -1,5 +1,5 @@
 {   
-    "model_name": " Switch-Large-128",
+    "model_name": "Flame-moe",
     "model_params_b": 7,
     "model_vocab_size": 50304,
     "model_n_layer": 1,
