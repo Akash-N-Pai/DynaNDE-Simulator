@@ -99,7 +99,9 @@ Decoder-BS{size}/
 │   │   ├── 2/
 │   │   │   └── SA_stage_E.txt
 │   │   └── ...
-│   └── layer2.txt          # Routing statistics for this token position
+│   └── layer2.txt          # Routing statistics for this token position 
+│   │
+│   └── ....                # Routing statistics for this token position last layer
 ├── 2nd/                    # Second token position
 │   └── ...
 └── ...
@@ -111,16 +113,50 @@ Decoder-BS{size}/
    - Expert operations table with columns:
      - Expert Number, param_load, fc1, gelu, fc2, total compute
    - One file per token position and experiment (layer)
+   - **Example format:**
+     ```
+     Expert Number  param_load    fc1      gelu    fc2     total compute
+     0              353600        20089    1680    20088   41857
+     1              353536        15049    1260    15049   31358
+     2              353536        18169    1520    18170   37859
+     ...
+     63             353536        14377    1207    14376   29960
+     ```
 
 2. **`SA_stage_E.txt`** (PIM folder):
    - Expert operations table (no param_load):
      - Expert Number, fc1, gelu, fc2, total compute
    - Activation movement cycles (movement_1, movement_2)
+   - **Example format:**
+     ```
+     Expert Number  fc1      gelu    fc2     total compute
+     0              20089    1680    20088   41857
+     1              15049    1260    15049   31358
+     ...
+     63             14377    1207    14376   29960
+     
+     activation_movement_1: 3379 cycles
+     activation_movement_2: 3365 cycles
+     ```
 
 3. **`layer{num}.txt`** (Routing statistics):
    - Expert token distribution from trace generator
    - One file per token position
    - Used to identify active experts and their ordering for MoNDE and DynaNDE
+   - **Example format:**
+     ```
+     Expert 20  1234
+     Expert 12  856
+     Expert 26  742
+     Expert 38  689
+     Expert 28  567
+     ...
+     Expert 5    0
+     Expert 7    0
+     ```
+   - Format: `Expert <expert_number> <token_count>`
+   - Experts are typically sorted by token count (descending)
+   - Only experts with token_count > 0 are considered "active"
 
 ---
 

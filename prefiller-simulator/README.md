@@ -87,12 +87,10 @@ Encoder-BS{size}-SL{length}/
 │   ├── 3/
 │   └── ...
 └── pim/
-    ├── 2/
-    │   └── SA_stage_E.txt
-    ├── 3/
-    └── ...
-
-Encoder-BS{size}-SL{length}/
+│    ├── 2/
+│    │   └── SA_stage_E.txt
+│    ├── 3/
+│   └── ...
 ├── layer2.txt    # Routing statistics (top experts)
 ├── layer3.txt
 └── ...
@@ -104,16 +102,50 @@ Encoder-BS{size}-SL{length}/
    - Expert operations table with columns:
      - Expert Number, param_load, fc1, gelu, fc2, total compute
    - One file per experiment folder
+   - **Example format:**
+     ```
+     Expert Number  param_load    fc1      gelu    fc2     total compute
+     0              353600        20089    1680    20088   41857
+     1              353536        15049    1260    15049   31358
+     2              353536        18169    1520    18170   37859
+     ...
+     63             353536        14377    1207    14376   29960
+     ```
 
 2. **`SA_stage_E.txt`** (PIM folder):
    - Expert operations table (no param_load):
      - Expert Number, fc1, gelu, fc2, total compute
    - Activation movement cycles (movement_1, movement_2)
+   - **Example format:**
+     ```
+     Expert Number  fc1      gelu    fc2     total compute
+     0              20089    1680    20088   41857
+     1              15049    1260    15049   31358
+     ...
+     63             14377    1207    14376   29960
+     
+     activation_movement_1: 2301072 cycles
+     activation_movement_2: 2290384 cycles
+     ```
 
 3. **`layer{num}.txt`** (Routing statistics):
    - Expert token distribution from trace generator
    - Used to identify top 4 experts for MoNDE
    - Used to order experts by activity for DynaNDE
+   - **Example format:**
+     ```
+     Expert 38  1234
+     Expert 28  856
+     Expert 21  742
+     Expert 1   689
+     Expert 57  567
+     ...
+     Expert 5    0
+     Expert 7    0
+     ```
+   - Format: `Expert <expert_number> <token_count>`
+   - Experts are typically sorted by token count (descending)
+   - Top 4 experts (by token count) are used for MoNDE hybrid mode
 
 ---
 
