@@ -212,11 +212,14 @@ DynaNDE finds the split that **minimizes total execution time** by balancing:
 
 1. **Run NeuPIMs-MoE simulator** to generate `SA_stage_E.txt` files for NPU and PIM modes for each token position
 2. **Generate routing statistics** using `DynaNDE-Trcegenerator/decoder.ipynb` to create `layer{num}.txt` files per token position
-3. **Run `MOE_simulator.ipynb`**:
+3. **Run `analyze_experts.ipynb` first** for data preprocessing:
+   - Parses and extracts expert operation cycles from `SA_stage_E.txt` files
+   - Processes routing statistics to identify active experts per token position
+   - Prepares data in the format required by `MOE_simulator.ipynb`
+4. **Then run `MOE_simulator.ipynb`**:
    - Configure `base_dir` to point to your experiment folder
    - Configure `numbered_folders` (e.g., `['1st', '2nd', ..., '10th']`)
    - Execute cells to analyze NPU-only, PIM-only, MoNDE, and DynaNDE modes
-4. **Use `analyze_experts.ipynb`** for data preprocessing and detailed analysis
 
 ---
 
