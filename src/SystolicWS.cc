@@ -335,7 +335,6 @@ void SystolicWS::issue_ex_inst(Instruction inst) {
         if (parent_tile == nullptr) {
             assert(0);
         }
-        spdlog::info("COMPUTE Start cycle: {} inst:{}", _core_cycle, inst.repr());
         // Fix integer overflow: cast to uint64_t before multiplication
         parent_tile->stat.num_calculation += (uint64_t)inst.tile_m * inst.tile_n * inst.tile_k;
 

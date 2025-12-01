@@ -32,7 +32,8 @@ class MoERoutingTraceReader {
     bool _has_trace;
     uint32_t _num_experts;
     uint32_t _experts_per_token;
-    uint32_t _batch_size;
+    uint32_t _batch_size;      // Requested batch size (from simulation)
+    uint32_t _trace_batch_size; // Actual batch size in trace file
     std::string _trace_path;
     
     // Map: layer_id -> token_id -> expert probabilities

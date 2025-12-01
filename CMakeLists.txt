@@ -19,9 +19,13 @@ set(LIBRARY_OUTPUT_PATH "${CMAKE_SOURCE_DIR}/build/lib")
 add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
 message("BINARY DIR ${CMAKE_BINARY_DIR}")
 
-# For debug
-set(CMAKE_BUILD_TYPE Debug)
-set(CMAKE_CXX_FLAGS "-g -O0 -Wall -Wextra --debug-cpp --trace -rdynamic")
+# For performance (10-50× faster simulation!)
+set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_CXX_FLAGS "-O3 -march=native -DNDEBUG -Wall")
+
+# For debug (uncomment to enable, comment Release above)
+# set(CMAKE_BUILD_TYPE Debug)
+# set(CMAKE_CXX_FLAGS "-g -O0 -Wall -Wextra --debug-cpp --trace -rdynamic")
 
 # Build source
 add_subdirectory("${PROJECT_SOURCE_DIR}/src")

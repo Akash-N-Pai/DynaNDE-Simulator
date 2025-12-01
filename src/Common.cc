@@ -247,11 +247,11 @@ void initialize_client_config(std::string cli_config_path) {
 }
 
 uint32_t SimulationConfig::get_expert_ffn_dim() const {
-    if (!moe_enabled) return 4 * model_n_embd / n_tp;  // Dense FFN
+    if (!moe_enabled) return model_n_ffn / n_tp;  // Dense FFN
     
-    // For MoE: d_ff_expert = (4 * d_model) / num_experts
+    // For MoE: d_ff_expert = (model_n_ffn) / num_experts
     // Note: We don't divide by n_tp for MoE experts
-    uint32_t d_ff_base = 4 * model_n_embd;
+    uint32_t d_ff_base = model_n_ffn;
     
     if (moe_ffn_scaling == "balanced") {
         // Parameter-balanced: total params ≈ dense FFN params
@@ -278,6 +278,8 @@ void initialize_model_config(std::string model_config_path) {
     Config::global_config.model_n_layer = model_config["model_n_layer"];
     Config::global_config.model_n_head = model_config["model_n_head"];
     Config::global_config.model_n_embd = model_config["model_n_embd"];
+    /* FFN dimension - if not set, defaults to 4 * model_n_embd */
+    Config::global_config.model_n_ffn = model_config.value("model_n_ffn", 4 * Config::global_config.model_n_embd);
     /* parallelism config */
     Config::global_config.n_tp = model_config["n_tp"];
     /* MoE configs */
@@ -294,6 +296,7 @@ void initialize_model_config(std::string model_config_path) {
     Config::global_config.moe_enable_parallelism = model_config.value("moe_enable_parallelism", true);
     Config::global_config.moe_enable_double_buffering = model_config.value("moe_enable_double_buffering", true);
     Config::global_config.moe_routing_trace_path = model_config.value("moe_routing_trace_path", std::string(""));
+    Config::global_config.ffn_execution_mode = model_config.value("ffn_execution_mode", std::string("npu"));
 }
 void initialize_system_config(std::string sys_config_path) {
     json sys_config = load_config(sys_config_path);

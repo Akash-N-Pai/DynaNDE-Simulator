@@ -6,12 +6,14 @@ MoERoutingTraceReader::MoERoutingTraceReader(std::string trace_path, uint32_t nu
       _num_experts(num_experts),
       _experts_per_token(experts_per_token),
       _batch_size(batch_size),
-      _has_trace(false) {
+      _has_trace(false),
+      _trace_batch_size(0) {
     
     _has_trace = load_trace();
     
     if (_has_trace) {
         spdlog::info("✓ Loaded MoE routing trace from: {}", trace_path);
+        spdlog::info("  Trace batch size: {} (requested batch size: {})", _trace_batch_size, _batch_size);
     } else {
         spdlog::info("✗ No routing trace found at: {}, using simulated distribution", trace_path);
     }
@@ -59,6 +61,9 @@ bool MoERoutingTraceReader::load_trace() {
             _routing_probs[layer_id].resize(_batch_size);
         }
         
+        // Track the maximum token_id encountered in the trace (actual trace batch size)
+        _trace_batch_size = std::max(_trace_batch_size, token_id + 1);
+        
         if (token_id < _batch_size) {
             _routing_probs[layer_id][token_id] = expert_probs;
         }
@@ -87,13 +92,22 @@ void MoERoutingTraceReader::compute_assignments(uint32_t layer_id) {
     }
     
     // For each token, select top-k experts
-    for (uint32_t token_id = 0; token_id < _batch_size; ++token_id) {
+    // Only iterate over tokens that exist in the trace file
+    uint32_t effective_batch_size = (_trace_batch_size > 0) ? _trace_batch_size : _batch_size;
+    effective_batch_size = std::min(effective_batch_size, static_cast<uint32_t>(_routing_probs[layer_id].size()));
+    
+    for (uint32_t token_id = 0; token_id < effective_batch_size; ++token_id) {
         if (token_id >= _routing_probs[layer_id].size()) {
             spdlog::warn("Missing routing data for layer {} token {}", layer_id, token_id);
             continue;
         }
         
         auto& probs = _routing_probs[layer_id][token_id];
+        
+        // Skip if no probabilities loaded (empty vector)
+        if (probs.empty() || probs.size() != _num_experts) {
+            continue;
+        }
         
         // Find top-k experts by probability
         std::vector<std::pair<double, uint32_t>> prob_expert_pairs;

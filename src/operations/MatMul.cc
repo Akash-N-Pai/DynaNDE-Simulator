@@ -56,7 +56,6 @@ std::vector<Ptr<BTensor>> MatMul::get_outputs(std::vector<Ptr<BTensor>> inputs) 
 
     for (size_t i = 0; i < inputs.size(); ++i) {
         _inputs[i] = inputs[i];
-        spdlog::info("MatMul input idx: {} / input sz: {}", i, inputs[i]->get_dims());
     }
 
     // validate input dimension.
@@ -70,13 +69,10 @@ std::vector<Ptr<BTensor>> MatMul::get_outputs(std::vector<Ptr<BTensor>> inputs) 
     // MoE token slicing: Use override if specified
     if (_use_row_override) {
         *(output_dims.rbegin() + 1) = _row_count_override;  // Override M dimension
-        spdlog::info("MatMul using row override: processing {} rows (instead of {})", 
-                     _row_count_override, *(input0_dims.rbegin() + 1));
     } else {
         *(output_dims.rbegin() + 1) = *(input0_dims.rbegin() + 1);  // Set (M, x) in matmul (M, K) x (K, N).
     }
     *output_dims.rbegin() = *input1_dims.rbegin();  // Set (x, N) in matmul (M, K) x (K, N)
-    spdlog::info("MatMul output sz: {}", output_dims);
 
     _outputs[0] =
         std::make_shared<NPUTensor>(_name + "_output", output_dims, NPUTensorBufType::ACT, false);
@@ -85,9 +81,6 @@ std::vector<Ptr<BTensor>> MatMul::get_outputs(std::vector<Ptr<BTensor>> inputs) 
 
     calculate_loops();
     initialize_tiles();
-
-    spdlog::info("input0 : {}  / input1: {} / output0 : {}", input0_dims, input1_dims, output_dims);
-    spdlog::info("outer loop : {} / inner loop : {}", _outer_loop, _inner_loop);
 
     return _outputs;
 }
@@ -277,21 +270,10 @@ Tile MatMul::initialize_instructions(uint32_t B, uint32_t M, uint32_t K, uint32_
                             activation_indexes.push_back(m_outer_offset + m_inner_offset + m_loop);
                             activation_indexes.push_back(k_outer_offset + k_inner_offset + k_loop);
                             auto activation_addr = activation_tensor->get_addr(activation_indexes);
-                            // xxx is it ok to validate with garbage_addr?
                             if (activation_addr != GARBAGE_ADDR) {
-                                // save maximum tile_m, tile_k value
                                 tile_m = m_loop + 1;
                                 tile_k = k_loop + 1;
-                                // activation_addrs.push_back(AddressConfig::switch_co_ch(act_addr));
-                                // act_addr += 2;  // precision
                                 activation_addrs.push_back(activation_addr);
-                                // spdlog::info("index in range. target tensor dimension: {}, "
-                                //              "access index {}",
-                                //              activation_tensor->get_dims(), activation_indexes);
-                            } else {
-                                // spdlog::info("index out of range. target tensor dimension: {}, "
-                                //              "access index {}",
-                                //              activation_tensor->get_dims(), activation_indexes);
                             }
                         }
                     }
@@ -310,7 +292,7 @@ Tile MatMul::initialize_instructions(uint32_t B, uint32_t M, uint32_t K, uint32_
                             .src_addrs = std::move(activation_addrs),
                             .operand_id = _INPUT_OPERAND});
                     }
-                } else {
+                } else{
                     // n_inner_offset != 0: No MOVIN, but still need to calculate tile_m, tile_k
                     // for accurate operation counting
                     for (int m_loop = 0; m_loop < loop_size; m_loop++) {
@@ -323,6 +305,27 @@ Tile MatMul::initialize_instructions(uint32_t B, uint32_t M, uint32_t K, uint32_
                                 tile_m = m_loop + 1;
                                 tile_k = k_loop + 1;
                             }
+                        }
+                    }
+                }
+                
+                // MoE FIX: Clamp tile_m/tile_n to respect row_override
+                // The M dimension (original, before transpose) needs to be clamped to row_override
+                // After transpose, loops are reversed, so we need to clamp the right variable
+                if (_use_row_override) {
+                    if (_is_transposed) {
+                        // With transpose: n_inner = original M dimension (row_override applies here)
+                        // tile_n represents the original M, so clamp it
+                        uint32_t remaining_m = _row_count_override - (n_outer_offset + n_inner_offset);
+                        if (remaining_m < loop_size) {
+                            tile_n = std::min(tile_n, remaining_m);
+                        }
+                    } else {
+                        // No transpose: m_inner = original M dimension
+                        // tile_m represents the original M, so clamp it
+                        uint32_t remaining_m = _row_count_override - (m_outer_offset + m_inner_offset);
+                        if (remaining_m < loop_size) {
+                            tile_m = std::min(tile_m, remaining_m);
                         }
                     }
                 }
@@ -343,15 +346,6 @@ Tile MatMul::initialize_instructions(uint32_t B, uint32_t M, uint32_t K, uint32_
                             if (weight_addr != GARBAGE_ADDR) {
                                 tile_n = n_loop + 1;
                                 weight_addrs.push_back(weight_addr);
-                                // spdlog::info(
-                                //     "index in range. target tensor dimension: {}, "
-                                //     "access index {}",
-                                //     weight_tensor->get_dims(), weight_indexes);
-                            } else {
-                                // spdlog::info(
-                                //     "index out of range. target tensor dimension: {}, "
-                                //     "access index {}",
-                                //     weight_tensor->get_dims(), weight_indexes);
                             }
                         }
                     }
@@ -391,6 +385,17 @@ Tile MatMul::initialize_instructions(uint32_t B, uint32_t M, uint32_t K, uint32_
                         }
                     }
                 }
+                
+                // MoE FIX: Clamp tile_n to respect row_override (for both m_inner_offset branches)
+                if (_use_row_override && _is_transposed) {
+                    // With transpose: n_inner = original M dimension (row_override applies here)
+                    // tile_n represents the original M, so clamp it
+                    uint32_t remaining_m = _row_count_override - (n_outer_offset + n_inner_offset);
+                    if (remaining_m < loop_size) {
+                        tile_n = std::min(tile_n, remaining_m);
+                    }
+                }
+                
                 // spdlog::info("{} {} {}", activation_tensor->get_dims(),
                 // weight_tensor->get_dims(),
                 //              output_tensor->get_dims());
@@ -399,6 +404,7 @@ Tile MatMul::initialize_instructions(uint32_t B, uint32_t M, uint32_t K, uint32_
                 // std::cout << "tile " << tile_m << " " << tile_n << " " << tile_k << std::endl;
                 // -- compute --
                 // in case of 1st L1 tile execution, execute GEMM_PRELOAD instruction
+                
                 tile.instructions.push_back(Instruction{
                     .opcode = (m_inner_offset == 0 ? Opcode::GEMM_PRELOAD : Opcode::GEMM),
                     .dest_addr = sram_accumulation_offset,

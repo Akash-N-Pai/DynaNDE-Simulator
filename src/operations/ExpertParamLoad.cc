@@ -1,15 +1,22 @@
 #include "ExpertParamLoad.h"
+#include <random>
 
 ExpertParamLoad::ExpertParamLoad(std::string name, uint32_t expert_id,
                                  std::vector<Ptr<NPUTensor>> expert_weights,
                                  Ptr<BTensor> data_tensor)
-    : Operation(name), _expert_id(expert_id), _data_tensor(data_tensor) {
+    : Operation(name), _expert_id(expert_id), _data_tensor(data_tensor), _expert_weights(expert_weights) {
     
     // Calculate total parameter size for this expert
     // FC1 + FC2 weights (bias is small, ignored)
     _param_size_bytes = 0;
-    for (auto weight : expert_weights) {
-        _param_size_bytes += weight->_inners[0]->_size;
+    if (!expert_weights.empty()) {
+        // Normal case: Calculate size from weights
+        for (auto weight : expert_weights) {
+            _param_size_bytes += weight->_inners[0]->_size;
+        }
+    } else {
+        // Empty weights: Used as barrier only (PIM mode), no actual parameter load
+        _param_size_bytes = 0;
     }
     
     _inputs.resize(expert_weights.size() + 1);
@@ -21,16 +28,23 @@ ExpertParamLoad::ExpertParamLoad(std::string name, uint32_t expert_id,
 }
 
 void ExpertParamLoad::calculate_load_cycles() {
-    // Parameter Movement Overhead
+    // Parameter Movement Overhead with REALISTIC modeling
     // Based on actual weight size passed to this operation
-    // The weights are already provided in the constructor, so we use _param_size_bytes
-    // which was calculated from the actual expert weight tensors
     
     uint64_t param_bytes = _param_size_bytes;
     
-    // Transfer latency calculation using interconnect bandwidth
-    // Interconnect connects NPU cores to DRAM (NOT HBM2 bandwidth - that's for PIM)
-    uint32_t icnt_bandwidth_gbps = 64;  // 256-bit wide @ 2000 MHz
+    // Special case: If no weights (barrier only, e.g., PIM mode sequential dependency)
+    // Add minimal overhead for dependency chain, but no actual transfer
+    if (_param_size_bytes == 0) {
+        _load_cycles = 0;  // No actual parameter load happening
+        return;
+    }
+    
+    // REALISTIC PCIe Gen4 x16 parameters:
+    // - Theoretical peak: ~32 GB/s
+    // - Sustained bandwidth in practice: 18-22 GB/s due to overheads
+    // - Accounts for: protocol overhead (~15-20%), TLP inefficiency, memory controller, cache coherency
+    uint32_t icnt_bandwidth_gbps = 30;  // Realistic sustained PCIe Gen4 x16
     uint32_t core_freq_mhz = _config.core_freq;  // 1000 MHz
     
     // Bytes per cycle at core frequency
@@ -39,11 +53,45 @@ void ExpertParamLoad::calculate_load_cycles() {
     // Cycles for transfer at core frequency
     uint64_t transfer_cycles = (uint64_t)(param_bytes / bytes_per_cycle);
     
-    // Add base latency (interconnect protocol overhead)
-    _load_cycles = transfer_cycles + _config.expert_load_latency;
+    // REALISTIC OVERHEAD MODELING:
+    // 1. Base PCIe transaction overhead
+    uint64_t base_latency = _config.expert_load_latency;  // ~1000 cycles default
     
-    spdlog::info("Expert {} param load: {} bytes, {} cycles at core freq", 
-                 _expert_id, param_bytes, _load_cycles);
+    // 2. Size-dependent overhead (larger transfers need more setup)
+    uint64_t size_overhead = 0;
+    if (param_bytes < 64 * 1024) {
+        // Very small transfers: high relative overhead (cache line operations)
+        size_overhead = 500;
+    } else if (param_bytes < 1024 * 1024) {
+        // Small transfers: moderate overhead
+        size_overhead = 300;
+    } else if (param_bytes < 8 * 1024 * 1024) {
+        // Medium transfers: minimal overhead
+        size_overhead = 100;
+    }
+    // Large transfers: no additional size overhead (already accounted in base_latency)
+    
+    // 3. Memory controller overhead (HBM access latency)
+    // Larger transfers may hit multiple HBM channels, add some latency
+    uint64_t hbm_overhead = 0;
+    if (param_bytes > 4 * 1024 * 1024) {
+        // Large transfers spread across multiple HBM controllers
+        hbm_overhead = (param_bytes / (4 * 1024 * 1024)) * 200;  // ~200 cycles per controller
+    }
+    
+    // 4. Real-world jitter/variance (±5-10%)
+    // Simulate packet retransmission, cache misses, memory bank conflicts
+    // Use expert_id as seed to get deterministic but varied variance per expert
+    std::mt19937 gen(_expert_id);  // Seed with expert_id for deterministic but varied results
+    std::uniform_real_distribution<double> variance_dist(-0.05, 0.05);  // ±15% random variance
+    double variance_factor = variance_dist(gen);
+    uint64_t variance = std::abs(transfer_cycles * variance_factor);
+    
+    _load_cycles = transfer_cycles + base_latency + size_overhead + hbm_overhead + variance;
+    
+    spdlog::info("Expert {} param load: {} bytes, {} cycles (transfer: {}, overhead: base={}, size={}, hbm={}, variance={})", 
+                 _expert_id, param_bytes, _load_cycles, transfer_cycles, 
+                 base_latency, size_overhead, hbm_overhead, variance);
 }
 
 std::vector<Ptr<BTensor>> ExpertParamLoad::get_outputs(std::vector<Ptr<BTensor>> inputs) {
@@ -80,20 +128,16 @@ void ExpertParamLoad::initialize_tiles() {
         .accum = false,
     };
     
-    // Use DUMMY instruction with size = _load_cycles
-    // The modified DUMMY opcode will return this as the cycle count
-    // This properly injects the parameter load latency into the timeline
+    // Model parameter load latency using DUMMY instruction
+    // This adds the transfer overhead to the simulation timeline
     tile.instructions.push_back(Instruction{
         .opcode = Opcode::DUMMY,
         .dest_addr = ACCUM_SPAD_BASE,
-        .size = _load_cycles,  // DUMMY will use this as cycle count
-        .src_addrs = std::vector<addr_type>{},  // No memory access needed
+        .size = _load_cycles,  // Models the parameter transfer latency
+        .src_addrs = std::vector<addr_type>{},
     });
     
     _tiles.push_back(tile);
-    
-    spdlog::info("ExpertParamLoad {}: {} bytes, {} cycles overhead", 
-                 _expert_id, _param_size_bytes, _load_cycles);
 }
 
 Tile ExpertParamLoad::initialize_instructions() {

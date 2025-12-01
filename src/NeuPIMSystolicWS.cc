@@ -302,6 +302,7 @@ void NeuPIMSystolicWS::update_stats() {
         if (parent_tile == nullptr) {
             assert(0);
         }
+        
         parent_tile->stat.compute_cycles++;
         // Systolic array throughput per cycle = width × height × 2 (MAC operations)
         _stat.back().num_calculations += _config.core_width * _config.core_height * 2;
@@ -432,7 +433,6 @@ void NeuPIMSystolicWS::issue_ex_inst(Instruction inst) {
         if (parent_tile == nullptr) {
             assert(0);
         }
-        // spdlog::info("COMPUTE Start cycle: {} inst:{}", _core_cycle, inst.repr());
         // Fix integer overflow: cast to uint64_t before multiplication
         parent_tile->stat.num_calculation += (uint64_t)inst.tile_m * inst.tile_n * inst.tile_k;
 
