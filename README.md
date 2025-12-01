@@ -41,7 +41,7 @@ This research project focuses on **improving load balancing between NPU and NDP/
 ### Method 1: Docker Image
 
 ```bash
-$ git clone <repository-url>
+$ git clone https://github.com/Akash-N-Pai/DynaNDE-Simulator.git
 $ cd NeuPIMs
 $ docker build . -t neupims
 $ docker run -it -v .:/workspace/neupims-sim neupims
