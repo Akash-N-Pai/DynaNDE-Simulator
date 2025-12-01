@@ -1,4 +1,4 @@
-# NeuPIMs-MoE Simulator
+# DynaNDE-MoE Simulator
 
 This simulator extends the [NeuPIMs cycle-accurate simulator](https://github.com/casys-kaist/NeuPIMs) with comprehensive support for **Mixture of Experts (MoE)** architectures. The original NeuPIMs simulator integrates an open-source [NPU simulator](https://github.com/PSAL-POSTECH/ONNXim) and an in-house PIM (Processing-In-Memory) simulator based on DRAMsim3.
 
