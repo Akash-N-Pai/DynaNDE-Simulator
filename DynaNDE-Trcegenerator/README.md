@@ -1,6 +1,7 @@
 # DynaNDE Trace Generator
 
-Tools for generating expert routing traces from MoE model executions for use with the NeuPIMs-MoE simulator.
+Tools for generating expert routing traces from MoE model executions for use with the NeuPIMs-MoE simulator. The input .pt files are very large and therefore not included in this repository. You are expected to generate them by capturing the routing logs while running the models. For reference, we have provided sample FLAME MoE traces, available in the following Hugging Face repository: https://huggingface.co/datasets/CMU-FLAME/FLAME-MoE-Traces
+we have used actives/flame-moe-290m/31066/5473 for our evaluation
 
 ---
 
