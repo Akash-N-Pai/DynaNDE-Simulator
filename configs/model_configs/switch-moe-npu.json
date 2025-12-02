@@ -10,7 +10,7 @@
     "n_pp": 1,
     "moe_enabled": true,
     "num_experts": 64,
-    "experts_per_token": 6,
+    "experts_per_token": 1,
     "expert_capacity_factor": 1.25,
     "expert_load_imbalance": true,
     "expert_load_skew": 0.8,
