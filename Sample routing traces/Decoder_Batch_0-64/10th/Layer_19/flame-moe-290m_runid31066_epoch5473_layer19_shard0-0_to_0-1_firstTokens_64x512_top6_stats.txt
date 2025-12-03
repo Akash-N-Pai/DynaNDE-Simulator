@@ -1,0 +1,95 @@
+============================================================
+TOP 6 EXPERT TOKEN DISTRIBUTION (10Th token)
+============================================================
+Total tokens: 64
+Expected total (tokens × 6): 384
+============================================================
+Expert ID    Token Count     Percentage
+------------------------------------------------------------
+Expert 5     12               18.75%
+Expert 37    12               18.75%
+Expert 1     11               17.19%
+Expert 30    11               17.19%
+Expert 8     10               15.62%
+Expert 12    10               15.62%
+Expert 36    10               15.62%
+Expert 55    10               15.62%
+Expert 57    10               15.62%
+Expert 21    9                14.06%
+Expert 58    9                14.06%
+Expert 60    9                14.06%
+Expert 6     8                12.50%
+Expert 15    8                12.50%
+Expert 17    8                12.50%
+Expert 19    8                12.50%
+Expert 26    8                12.50%
+Expert 35    8                12.50%
+Expert 47    8                12.50%
+Expert 62    8                12.50%
+Expert 9     7                10.94%
+Expert 31    7                10.94%
+Expert 34    7                10.94%
+Expert 38    7                10.94%
+Expert 3     6                 9.38%
+Expert 4     6                 9.38%
+Expert 16    6                 9.38%
+Expert 24    6                 9.38%
+Expert 33    6                 9.38%
+Expert 43    6                 9.38%
+Expert 51    6                 9.38%
+Expert 0     5                 7.81%
+Expert 7     5                 7.81%
+Expert 13    5                 7.81%
+Expert 18    5                 7.81%
+Expert 22    5                 7.81%
+Expert 23    5                 7.81%
+Expert 27    5                 7.81%
+Expert 28    5                 7.81%
+Expert 29    5                 7.81%
+Expert 32    5                 7.81%
+Expert 39    5                 7.81%
+Expert 40    5                 7.81%
+Expert 41    5                 7.81%
+Expert 53    5                 7.81%
+Expert 54    5                 7.81%
+Expert 63    5                 7.81%
+Expert 10    4                 6.25%
+Expert 25    4                 6.25%
+Expert 46    4                 6.25%
+Expert 61    4                 6.25%
+Expert 2     3                 4.69%
+Expert 14    3                 4.69%
+Expert 44    3                 4.69%
+Expert 45    3                 4.69%
+Expert 49    3                 4.69%
+Expert 50    3                 4.69%
+Expert 56    3                 4.69%
+Expert 59    3                 4.69%
+Expert 11    2                 3.12%
+Expert 42    2                 3.12%
+Expert 20    1                 1.56%
+Expert 48    1                 1.56%
+Expert 52    1                 1.56%
+------------------------------------------------------------
+Total assignments: 384
+
+============================================================
+GATING MECHANISM OUTPUT
+============================================================
+Expert_Activ (experts with ≥1 token): 64
+
+Bandwidth Parameters:
+  BW_PCIe: 32 Gbps
+  BW_MD:   512 Gbps
+  Alpha (α): 1.0
+
+Calculated Values:
+  Expert_GPU: 4
+  Expert_MD:  60
+  H (Gating Output): 4
+
+Formulas Used:
+  Expert_GPU = (BW_PCIe / (BW_MD + BW_PCIe)) × Expert_Activ
+  Expert_GPU = (32 / (512 + 32)) × 64
+  Expert_MD = Expert_Activ - Expert_GPU
+  H = α × Expert_GPU = 1.0 × 4

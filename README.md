@@ -56,7 +56,43 @@ $ docker run -it -v .:/workspace/neupims-sim neupims
 (docker) cd neupims-sim
 (docker) ./brun_fast.sh
 ```
+## ⚠️ IMPORTANT NOTE - Quick Start with Pre-Run Files
 
+### Sample Pre-Run Simulation Data Available
+
+**To save time, we have included pre-run simulation files for immediate analysis!**
+
+The first phase of simulation (NPU and PIM execution data) has already been generated for both simulators:
+
+#### **Prefiller Simulator** (`prefiller-simulator/`)
+- **Dataset**: `Encoder-BS32-SL64/`
+- **Includes**: 
+  - Pre-computed NPU execution data (`npu/` folder with folders 2-12)
+  - Pre-computed PIM execution data (`pim/` folder with folders 2-12)
+  - Layer routing statistics files (`layer2.txt` through `layer9.txt`)
+- **Usage**: Open `prefiller-simulator/MOE_simulator.ipynb` and run directly with `base_dir = 'Encoder-BS32-SL64'`
+
+#### **Decoder Simulator** (`decoder-simulator/`)
+- **Dataset**: `Decoder-BS16/`
+- **Includes**:
+  - Pre-computed NPU execution data for each token position (`1st/`, `2nd/`, ..., `10th/`)
+  - Pre-computed PIM execution data for each token position
+  - Layer routing statistics files (`layer2.txt` through `layer9.txt`) for each token position
+- **Usage**: Open `decoder-simulator/MOE_simulator.ipynb` and run directly with `base_dir = 'Decoder-BS16'`
+
+**You can immediately analyze NPU-only, PIM-only, MoNDE hybrid, and DynaNDE modes without running the time-consuming NeuPIMs-MoE simulator first.**
+
+📖 **See detailed instructions in each folder's README.md:**
+- `prefiller-simulator/README.md`
+- `decoder-simulator/README.md`
+
+### Automated Batch Run Script
+
+A sample automated run script for decoder operation (`run_all_batches.sh`) is included. It can be used to simulate all decoder CSV routing trace files—approximately 240 traces—by running them sequentially. You may need to modify this script to match the structure and number of your trace files. A similar script can also be created for the encoder if needed.
+
+### Note on Dataset Size
+
+Please note that not all trace files and pre-run outputs are included, as the full dataset is too large. The provided samples are sufficient for understanding the workflow and getting started quickly.
 
 ---
 
@@ -127,6 +163,7 @@ The simulator supports two modes for expert routing:
 1. **Trace-based routing**: Use pre-generated routing traces from actual model executions
    - Set `moe_routing_trace_path` to the trace file path
    - Traces can be generated using tools in `DynaNDE-Trcegenerator/`
+   - Sample routing trace folder has the sample trace files for refference each csv file in this needs to be fed to the simulator through the model cofig file 
 
 2. **Simulated routing**: Automatically generate token-to-expert assignments
    - Leave `moe_routing_trace_path` empty

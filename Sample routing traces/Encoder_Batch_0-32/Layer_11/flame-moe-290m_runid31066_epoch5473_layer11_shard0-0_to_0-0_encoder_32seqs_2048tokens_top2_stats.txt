@@ -1,0 +1,79 @@
+============================================================
+TOP 2 EXPERT TOKEN DISTRIBUTION (Layer 11 - ALL SEQUENCES)
+============================================================
+Total tokens: 2048
+Total sequences: 32
+Sequence length: 64
+Expected total (tokens × 2): 4096
+============================================================
+Expert ID    Token Count     Percentage
+------------------------------------------------------------
+Expert 60    170               8.30%
+Expert 57    120               5.86%
+Expert 4     108               5.27%
+Expert 9     103               5.03%
+Expert 55    103               5.03%
+Expert 21    100               4.88%
+Expert 41    88                4.30%
+Expert 58    88                4.30%
+Expert 51    84                4.10%
+Expert 17    83                4.05%
+Expert 46    83                4.05%
+Expert 38    82                4.00%
+Expert 5     81                3.96%
+Expert 16    80                3.91%
+Expert 61    78                3.81%
+Expert 19    77                3.76%
+Expert 32    77                3.76%
+Expert 37    75                3.66%
+Expert 11    73                3.56%
+Expert 26    72                3.52%
+Expert 54    72                3.52%
+Expert 2     71                3.47%
+Expert 22    71                3.47%
+Expert 39    71                3.47%
+Expert 23    68                3.32%
+Expert 7     67                3.27%
+Expert 15    65                3.17%
+Expert 31    65                3.17%
+Expert 42    64                3.12%
+Expert 50    64                3.12%
+Expert 63    64                3.12%
+Expert 40    61                2.98%
+Expert 53    60                2.93%
+Expert 33    59                2.88%
+Expert 43    59                2.88%
+Expert 56    59                2.88%
+Expert 47    57                2.78%
+Expert 25    56                2.73%
+Expert 18    55                2.69%
+Expert 1     54                2.64%
+Expert 35    53                2.59%
+Expert 8     50                2.44%
+Expert 12    50                2.44%
+Expert 59    50                2.44%
+Expert 6     49                2.39%
+Expert 14    49                2.39%
+Expert 27    49                2.39%
+Expert 45    48                2.34%
+Expert 36    47                2.29%
+Expert 24    46                2.25%
+Expert 29    46                2.25%
+Expert 34    45                2.20%
+Expert 30    42                2.05%
+Expert 44    42                2.05%
+Expert 10    39                1.90%
+Expert 13    38                1.86%
+Expert 52    36                1.76%
+Expert 62    36                1.76%
+Expert 3     35                1.71%
+Expert 20    35                1.71%
+Expert 48    35                1.71%
+Expert 0     34                1.66%
+Expert 28    34                1.66%
+Expert 49    21                1.03%
+------------------------------------------------------------
+
+GATING MECHANISM OUTPUT
+Expert_Activ: 64
+H (Gating Output): 4

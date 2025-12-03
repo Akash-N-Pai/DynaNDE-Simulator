@@ -4,6 +4,22 @@ Simulation tools for analyzing MoE expert execution in the **decoder/autoregress
 
 ---
 
+## ⚠️ IMPORTANT NOTE - Quick Start
+
+**Pre-run simulation files for FLAME-MoE are already available to save time!**
+
+The first phase of simulation (NPU and PIM execution data) has already been generated and is provided in the `Decoder-BS16` folder. This sample dataset includes:
+- Pre-computed NPU execution data (`npu/` folders for each token position)
+- Pre-computed PIM execution data (`pim/` folders for each token position)
+- Layer routing statistics files (`layer2.txt` through `layer9.txt`) for each token position
+- Token positions organized sequentially (`1st/`, `2nd/`, `3rd/`, ..., `10th/`)
+
+**You can directly run `MOE_simulator.ipynb` with the provided `Decoder-BS16` data without running the NeuPIMs-MoE simulator first.** This allows you to immediately test and analyze different execution modes (NPU-only, PIM-only, MoNDE, DynaNDE with cache awareness) without waiting for the time-consuming simulation phase.
+
+Simply open `MOE_simulator.ipynb` and ensure the `base_dir` variable points to `Decoder-BS16` to get started immediately.
+
+---
+
 ## Overview
 
 The decoder simulator processes decoder-phase MoE execution where tokens are generated sequentially (autoregressive). It analyzes cycle-accurate execution data from the NeuPIMs-MoE simulator to compare different load balancing strategies between NPU and PIM.

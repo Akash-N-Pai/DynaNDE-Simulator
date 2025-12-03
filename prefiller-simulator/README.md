@@ -4,6 +4,21 @@ Simulation tools for analyzing MoE expert execution in the **encoder/prefill pha
 
 ---
 
+## ⚠️ IMPORTANT NOTE - Quick Start
+
+**Pre-run simulation files for FLAME-MoE are already available to save time!**
+
+The first phase of simulation (NPU and PIM execution data) has already been generated and is provided in the `Encoder-BS32-SL64` folder. This sample dataset includes:
+- Pre-computed NPU execution data (`npu/` folder)
+- Pre-computed PIM execution data (`pim/` folder)  
+- Layer routing statistics files (`layer2.txt` through `layer9.txt`)
+
+**You can directly run `MOE_simulator.ipynb` with the provided `Encoder-BS32-SL64` data without running the NeuPIMs-MoE simulator first.** This allows you to immediately test and analyze different execution modes (NPU-only, PIM-only, MoNDE, DynaNDE) without waiting for the time-consuming simulation phase.
+
+Simply open `MOE_simulator.ipynb` and ensure the `base_dir` variable points to `Encoder-BS32-SL64` to get started immediately.
+
+---
+
 ## Overview
 
 The prefiller simulator processes encoder-phase MoE execution where all tokens in a sequence are processed in parallel. It analyzes cycle-accurate execution data from the NeuPIMs-MoE simulator to compare different load balancing strategies between NPU and PIM.
