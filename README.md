@@ -62,13 +62,13 @@ $ docker run -it -v .:/workspace/neupims-sim neupims
 
 **To save time, we have included pre-run simulation files for immediate analysis!**
 
-The first phase of simulation (NPU and PIM execution data) has already been generated for both simulators:
+The first phase of simulation (NPU and PIM execution data) has already been generated for both simulators FLAME-MoE:
 
 #### **Prefiller Simulator** (`prefiller-simulator/`)
 - **Dataset**: `Encoder-BS32-SL64/`
 - **Includes**: 
-  - Pre-computed NPU execution data (`npu/` folder with folders 2-12)
-  - Pre-computed PIM execution data (`pim/` folder with folders 2-12)
+  - Pre-computed NPU execution data (`npu/`)
+  - Pre-computed PIM execution data (`pim/`)
   - Layer routing statistics files (`layer2.txt` through `layer9.txt`)
 - **Usage**: Open `prefiller-simulator/MOE_simulator.ipynb` and run directly with `base_dir = 'Encoder-BS32-SL64'`
 
