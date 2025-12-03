@@ -89,7 +89,7 @@ The first phase of simulation (NPU and PIM execution data) has already been gene
 ### Automated Batch Run Script
 
 A sample automated run script for decoder operation (`run_all_batches.sh`) is included. It can be used to simulate all decoder CSV routing trace files—approximately 240 traces—by running them sequentially. You may need to modify this script to match the structure and number of your trace files. A similar script can also be created for the encoder if needed.
-or you can manulay enter each of these csv files in the  moe_routing_trace_path of the model_config files.
+or you can manualy enter each of these csv files in the  moe_routing_trace_path of the model_config files.
 ### Note on Dataset Size
 
 Please note that not all trace files and pre-run outputs are included, as the full dataset is too large. The provided samples are sufficient for understanding the workflow and getting started quickly.
